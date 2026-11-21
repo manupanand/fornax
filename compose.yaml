@@ -1,0 +1,50 @@
+# Copyright 2026 Manu P Anand
+# Licensed under the Apache License, Version 2.0
+# See LICENSE for details.
+
+# Local testing with WSL + Docker. See CONTRIBUTING.md.
+#
+#   docker compose up -d --build                                    # server on http://localhost:3000
+#   docker compose run --rm fornax admin create-user alice --admin  # prints an access token
+#   docker compose --profile test run --rm test                     # test suite in a container
+#   docker compose down [-v]                                        # stop [and wipe data]
+
+name: fornax
+
+services:
+  fornax:
+    build:
+      context: .
+      target: runtime
+    image: fornax:dev
+    init: true   # reap orphaned job processes and zombies
+    ports:
+      - "127.0.0.1:3000:3000"   # HTTP (UI, API, git), local only
+      - "127.0.0.1:2222:2222"   # git over SSH, local only
+    environment:
+      FORNAX_PUBLIC_URL: http://localhost:3000
+      FORNAX_SSH_URL: ssh://git@localhost:2222/
+      # OIDC login (optional):
+      # FORNAX_OIDC_ISSUER: https://idp.example.com/realms/main
+      # FORNAX_OIDC_CLIENT_ID: fornax
+      # FORNAX_OIDC_CLIENT_SECRET: ${FORNAX_OIDC_CLIENT_SECRET}
+      RUST_LOG: ${RUST_LOG:-info}
+    volumes:
+      - fornax-data:/data
+    restart: unless-stopped
+
+  test:
+    profiles: ["test"]
+    build:
+      context: .
+      target: test
+    image: fornax:test
+    init: true   # agent tests kill process groups; PID 1 must reap them
+    volumes:
+      - cargo-registry:/usr/local/cargo/registry
+      - cargo-target:/src/target
+
+volumes:
+  fornax-data:
+  cargo-registry:
+  cargo-target:
