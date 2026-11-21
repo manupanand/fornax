@@ -1,0 +1,2 @@
+.fornax/bad_cron.yaml:6:7: invalid cron expression `61 * * * *`: minute field `61`: 61 is out of range 0-59
+.fornax/bad_cron.yaml:7:7: invalid cron expression `@every 1h`: unsupported descriptor `@every 1h`; use @yearly, @annually, @monthly, @weekly, @daily, @midnight or @hourly

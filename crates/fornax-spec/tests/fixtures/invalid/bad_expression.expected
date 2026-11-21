@@ -1,0 +1,2 @@
+.fornax/bad_expression.yaml:6:9: invalid `if` expression `${{ branhc == 'main' }}`: at column 5: unknown name `branhc`; expected event, ref, branch, tag, sha, repo, vars.NAME, matrix.NAME, true, false or null
+.fornax/bad_expression.yaml:9:9: invalid `if` expression `startsWith(ref)`: at column 1: `startsWith` takes 2 arguments, got 1

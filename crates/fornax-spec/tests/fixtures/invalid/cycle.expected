@@ -1,0 +1,2 @@
+.fornax/cycle.yaml:5:3: dependency cycle: a -> c -> b -> a
+.fornax/cycle.yaml:14:3: dependency cycle: d -> d

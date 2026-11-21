@@ -1,0 +1,5 @@
+.fornax/many_errors.yaml:5:16: invalid pattern `[oops`: unterminated `[` character class (in `on.push.branches`)
+.fornax/many_errors.yaml:6:3: unknown field `pull_requests` in `on`; expected one of: push, pull_request, schedule, manual
+.fornax/many_errors.yaml:8:3: job name `bad/name` contains `/`; allowed are letters, digits, space and `_.()=,-`
+.fornax/many_errors.yaml:11:22: `timeout-minutes` must be a whole number from 1 to 1440
+.fornax/many_errors.yaml:15:13: matrix `os` must have at least one value

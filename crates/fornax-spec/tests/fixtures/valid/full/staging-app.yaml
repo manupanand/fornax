@@ -1,0 +1,8 @@
+# .fornax/deployments/staging-app.yaml
+kind: Deployment
+version: 1
+environment: staging
+source: { path: deploy/staging }
+target: { type: docker-compose, host: staging-1 }
+sync: { auto: true, prune: false, self-heal: false }
+promotion: { to: production, requires-approval: true }

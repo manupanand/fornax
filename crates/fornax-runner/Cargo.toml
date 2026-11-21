@@ -1,0 +1,33 @@
+[package]
+name = "fornax-runner"
+description = "Fornax runner-protocol server: gRPC Runner service, queue notifier, lease reaper"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+fornax-ci.workspace = true
+fornax-core.workspace = true
+fornax-db.workspace = true
+fornax-proto.workspace = true
+axum.workspace = true
+getrandom.workspace = true
+hex.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+tonic.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+fornax-agent.workspace = true
+axum = { workspace = true, features = ["http2"] }
+tempfile.workspace = true
+tokio-stream.workspace = true
+
+[lints]
+workspace = true

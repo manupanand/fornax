@@ -1,0 +1,10 @@
+kind: Pipeline
+version: 1
+on: push
+jobs:
+  deploy:
+    if: ${{ branhc == 'main' }}
+    steps: [{ run: make }]
+  other:
+    if: startsWith(ref)
+    steps: [{ run: make }]

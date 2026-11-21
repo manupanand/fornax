@@ -1,0 +1,10 @@
+kind: Pipeline
+version: 1
+on:
+  schedule:
+    - "0 3 * * 1-5"
+    - "61 * * * *"
+    - "@every 1h"
+jobs:
+  nightly:
+    steps: [{ run: make }]

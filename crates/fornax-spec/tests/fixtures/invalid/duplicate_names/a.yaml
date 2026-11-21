@@ -1,0 +1,7 @@
+kind: Pipeline
+version: 1
+name: ci
+on: push
+jobs:
+  build:
+    steps: [{ run: make }]

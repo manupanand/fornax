@@ -1,0 +1,182 @@
+// Copyright 2026 Manu P Anand
+// Licensed under the Apache License, Version 2.0
+// See LICENSE for details.
+
+// Fornax runner protocol, version 1 (LOG D-015, architecture §6).
+//
+// The agent initiates every call; the server never connects to the agent.
+// Every RPC except Register carries `authorization: Bearer fnr_<64 hex>` metadata.
+//
+// Compatibility rules for this package:
+//   * fields and enum values are only ever ADDED, never renumbered, retyped or reused;
+//   * removed fields are marked `reserved` (number and name);
+//   * enum value 0 is always UNSPECIFIED and must be handled as "unknown";
+//   * a breaking change means a new package (`fornax.runner.v2`), served side by side.
+syntax = "proto3";
+
+package fornax.runner.v1;
+
+service Runner {
+  // Exchange a registration token for a runner identity and runner token.
+  rpc Register(RegisterRequest) returns (RegisterResponse);
+  // Long-poll for work. The server holds the call (≈30 s) and answers with an
+  // empty `job` when nothing is available; the agent then polls again.
+  rpc Next(NextRequest) returns (NextResponse);
+  // Heartbeat / lease renewal for a running attempt.
+  rpc Extend(ExtendRequest) returns (ExtendResponse);
+  // Report the state of one step.
+  rpc Update(UpdateRequest) returns (UpdateResponse);
+  // Upload log chunks (client stream). Offsets are byte offsets into the
+  // combined log of the attempt, so re-sending a chunk is idempotent.
+  rpc Log(stream LogChunk) returns (LogAck);
+  // Report the final result of an attempt. Idempotent; the agent retries it.
+  rpc Done(DoneRequest) returns (DoneResponse);
+}
+
+message RegisterRequest {
+  // One-time registration token (flow defined by the server).
+  string registration_token = 1;
+  string name = 2;
+  repeated string labels = 3;
+  // Agent version (semver).
+  string version = 4;
+  // Operating system, e.g. "linux".
+  string os = 5;
+  // CPU architecture, e.g. "x86_64".
+  string arch = 6;
+}
+
+message RegisterResponse {
+  string runner_id = 1;
+  // Long-lived runner token, format `fnr_<64 lowercase hex>`. Shown once.
+  string runner_token = 2;
+}
+
+message NextRequest {
+  // Number of additional jobs the agent can take right now.
+  uint32 capacity_free = 1;
+}
+
+message NextResponse {
+  // Absent when there is no work ("poll again").
+  optional Job job = 1;
+}
+
+message Job {
+  // One execution of a job; all later calls refer to it.
+  string attempt_id = 1;
+  string job_id = 2;
+  string pipeline_id = 3;
+  string name = 4;
+  // "owner/name".
+  string repo_full_name = 5;
+  // HTTP(S) clone URL without credentials. Empty = no checkout.
+  string clone_url = 6;
+  // Full commit id to check out.
+  string sha = 7;
+  // Ref that triggered the pipeline, e.g. "refs/heads/main".
+  string ref = 8;
+  // Short-lived job token; used only for the checkout (HTTP Basic, user
+  // `fornax-job`). Never exposed to user steps.
+  string job_token = 9;
+  // Plain environment variables for every step.
+  map<string, string> env = 10;
+  repeated Step steps = 11;
+  // Whole-job timeout in seconds; 0 = agent default.
+  uint64 timeout_secs = 12;
+  // Values to replace with `[MASKED]` in logs (secret values, tokens).
+  repeated string mask = 13;
+  // Secret environment variables, given to steps only (not to checkout).
+  map<string, string> secrets = 14;
+}
+
+message Step {
+  string name = 1;
+  // Script run with `bash --noprofile --norc -eo pipefail -c`.
+  string run = 2;
+  map<string, string> env = 3;
+  // Step timeout in seconds; 0 = only the job timeout applies.
+  uint64 timeout_secs = 4;
+  // Relative path inside the workspace; empty = workspace root.
+  string working_directory = 5;
+}
+
+message ExtendRequest {
+  string attempt_id = 1;
+}
+
+enum ExtendState {
+  EXTEND_STATE_UNSPECIFIED = 0;
+  // Lease renewed; keep running.
+  EXTEND_STATE_OK = 1;
+  // The job was canceled; stop it and report CANCELED.
+  EXTEND_STATE_CANCEL = 2;
+  // The server no longer knows this attempt (lease expired); stop it.
+  EXTEND_STATE_LOST = 3;
+}
+
+message ExtendResponse {
+  ExtendState state = 1;
+}
+
+enum StepState {
+  STEP_STATE_UNSPECIFIED = 0;
+  STEP_STATE_RUNNING = 1;
+  STEP_STATE_SUCCESS = 2;
+  STEP_STATE_FAILURE = 3;
+  STEP_STATE_SKIPPED = 4;
+}
+
+message UpdateRequest {
+  string attempt_id = 1;
+  uint32 step_index = 2;
+  StepState step_state = 3;
+  // Unix time in milliseconds; 0 = unset.
+  int64 started_at = 4;
+  // Unix time in milliseconds; 0 = unset.
+  int64 finished_at = 5;
+  // Exit code of the step process (meaningful for SUCCESS/FAILURE).
+  int32 exit_code = 6;
+}
+
+message UpdateResponse {}
+
+enum LogStream {
+  LOG_STREAM_UNSPECIFIED = 0;
+  LOG_STREAM_STDOUT = 1;
+  LOG_STREAM_STDERR = 2;
+  // Lines written by the agent itself (step headers, errors).
+  LOG_STREAM_SYSTEM = 3;
+}
+
+message LogChunk {
+  string attempt_id = 1;
+  // Byte offset of `data` in the combined (already masked) log.
+  uint64 offset = 2;
+  bytes data = 3;
+  LogStream stream = 4;
+}
+
+message LogAck {
+  // Number of contiguous bytes stored from offset 0.
+  uint64 committed_offset = 1;
+}
+
+enum JobResult {
+  JOB_RESULT_UNSPECIFIED = 0;
+  JOB_RESULT_SUCCESS = 1;
+  JOB_RESULT_FAILURE = 2;
+  JOB_RESULT_CANCELED = 3;
+  // Infrastructure / agent error (checkout failed, workspace error, lost).
+  JOB_RESULT_ERROR = 4;
+}
+
+message DoneRequest {
+  string attempt_id = 1;
+  JobResult result = 2;
+  int32 exit_code = 3;
+  // Human-readable error for FAILURE/ERROR; empty otherwise. Already masked.
+  string error = 4;
+}
+
+message DoneResponse {}

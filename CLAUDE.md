@@ -11,8 +11,9 @@ delivery, shipped as a single fast binary, self-hosted first. It also integrates
 external Git hosts (first: GCP Cloud Source Repositories). A paid Enterprise Edition
 follows later (open core, like GitLab CE/EE).
 
-**Current phase: 0 — Architecture.** No product code until the architecture is
-approved (see `TASKS.md`, phase 0).
+**Current phase: M1 done (2026-11-20) → next M2 CI.** Follow-ups H-018 … H-021 in TASKS.md
+(coding started 2026-11-19 on user instruction, D-028). Architecture reference: `docs/architecture.md`. Backend is **Rust only** (D-026);
+only the Svelte frontend may use another language.
 
 ## Goals
 
@@ -35,6 +36,9 @@ approved (see `TASKS.md`, phase 0).
 | Executors | Host (shell) → Docker → Kubernetes (D-008). Host runners never run untrusted PR code by default |
 | Git | Own hosting + external integrations; first integration GCP Cloud Source Repositories, behind a provider abstraction (D-009, D-010). CSR is closed to new customers since 2024-06 |
 | Auth | OIDC → LDAP → SAML → SCIM, plus break-glass local admin (D-011). CE/EE split open |
+| UI | Svelte web UI (incl. Git hosting UI), assets embedded in the binary (D-023) |
+| Pipeline config | **YAML only** (no Groovy / server-side scripting), read from **`.fornax/`** at repo root, multiple files like `.github/workflows/` (D-024) |
+| Parity | rust-anything records behaviour of selected Gitea/GitLab/Jenkins units; Fornax writes its own Rust and proves parity (D-021, D-025). No wholesale ports |
 
 ## Non-goals (for now)
 
@@ -68,6 +72,8 @@ approved (see `TASKS.md`, phase 0).
 | Serialization | serde (YAML / JSON) | proposed |
 | Errors | thiserror (libs), anyhow (bins) | proposed |
 | Telemetry | tracing + OpenTelemetry, Prometheus metrics | proposed |
+| Web UI | Svelte (SvelteKit or Svelte + Vite — open) | accepted (D-023) |
+| Parity tooling | rust-anything (dev-only, never a build dependency) | accepted (D-025) |
 
 Decisions move to "accepted" only via a `LOG.md` entry.
 
@@ -78,17 +84,48 @@ README.md          project overview
 CLAUDE.md          this file
 TASKS.md           phased backlog
 LOG.md             append-only decision log
-THIRD_PARTY.md     attributions (planned)
+THIRD_PARTY.md     attributions
 docs/
-  architecture.md  architecture (planned, Step 4)
-  research/        per-tool research notes (planned, Step 2)
-crates/            Rust workspace (planned, after approval)
+  architecture.md  architecture (v0.1)
+  research/        per-tool research notes, rust-anything parity plan
+crates/
+  fornax-core      validation + domain types, no I/O
+  fornax-db        sqlx + SQLite migrations (migrations/sqlite/)
+  fornax-git       RepoStore over the git binary
+  fornax-api       axum: REST /api/v1, auth, Git smart HTTP
+  fornax-ssh       built-in SSH server for git (russh)
+  fornax-server    the `fornax` binary (serve, admin create-user/create-token/backup/restore)
+web/               Svelte 5 + Vite UI, built to web/dist and embedded (rust-embed)
+scripts/           license-headers.sh
+Dockerfile, compose.yaml   local testing in Docker (WSL)
 ```
+
+Boundaries: only `fornax-db` runs SQL, only `fornax-git` spawns `git` (the SSH crate asks
+`fornax-git` for the command), `fornax-core` does no
+I/O (architecture §4).
 
 ## How to run / test
 
-Not applicable yet. Once the workspace exists: `cargo build`, `cargo test`,
-`cargo clippy -- -D warnings`, `cargo fmt --check`.
+Requires Rust ≥ 1.88, `git` ≥ 2.38, and for tests `ssh`/`ssh-keygen` and `openssl` on `PATH`.
+The UI needs Node 24 (`~/.local/node/bin` in WSL). **Read `RULES.md`** — every source file
+carries the license header.
+
+```bash
+cargo build --workspace
+cargo test --workspace                       # includes real git clone/push over HTTP
+cargo clippy --workspace --all-targets -- -D warnings
+cargo fmt --all --check
+
+cargo run -p fornax-server -- admin create-user alice --admin   # prints a token
+cargo run -p fornax-server -- serve --listen 127.0.0.1:3000 --ssh-listen 127.0.0.1:2222
+scripts/license-headers.sh                   # header check (--fix to add)
+(cd web && npm ci && npm run check && npm run build)   # UI → web/dist, embedded on next cargo build
+docker compose up -d --build                 # local stack; --profile test run --rm test for tests
+```
+
+Data lives in `./data` (`--data-dir` / `FORNAX_DATA_DIR`): `fornax.db`, `repos/`,
+`ssh_host_ed25519_key`. OIDC via `--oidc-issuer/--oidc-client-id/--oidc-client-secret`
+(or `FORNAX_OIDC_*`).
 
 ## Coding conventions (to apply once code starts)
 
@@ -109,6 +146,46 @@ Not applicable yet. Once the workspace exists: `cargo build`, `cargo test`,
 5. Keep outputs concise and structured. Ask before any destructive action.
 6. Environment: work in WSL; repo at `/home/manupanand/code-personal/fornax`.
 
+## Multi-agent workflow (D-032)
+
+When work can be split, **the main session acts as orchestrator and deploys subagents**
+(Claude Code `Agent` tool) instead of doing everything serially. Project subagents live in
+`.claude/agents/`:
+
+| Agent | Writes code? | Use for |
+|---|---|---|
+| `fornax-backend` | yes (Rust, `crates/*`) | one task ID on one crate or a disjoint set of crates |
+| `fornax-frontend` | yes (`web/` only) | UI task IDs, once the API it needs exists or is fixed in the brief |
+| `fornax-parity` | yes (corpora + replay tests) | one rust-anything parity unit (U1–U9) each |
+| `fornax-researcher` | no | prior art in one FOSS tool / one question each |
+| `fornax-reviewer` | no | security + RULES.md review of a diff |
+| `fornax-tester` | no | full verification matrix (fmt, clippy, tests, headers, UI, Docker) |
+
+**Fan out when** there are ≥ 2 pieces of work that are independent: different crates or
+`web/` vs backend, separate parity units, research across several tools, or review + test
+after a change. **Stay single-agent when** the steps depend on each other, touch the same
+files, or the whole thing is a few edits.
+
+**Orchestrator rules**
+1. Plan first: list the pieces, mark which are independent, and give each a task ID from
+   `TASKS.md`, the files/crates it owns, and its definition of done.
+2. **One writer per file set.** Writing agents get disjoint paths; run them with
+   `isolation: "worktree"` when they share the repository, then merge their branches.
+3. The orchestrator alone edits shared files: `LOG.md`, `TASKS.md`, `CLAUDE.md`, root
+   `Cargo.toml`, `Cargo.lock`, migration numbering. Agents report needed changes instead.
+4. Briefs are self-contained (agents start cold): task ID, goal, files owned, interfaces
+   they may rely on, constraints from `RULES.md`, commands that must pass.
+5. Agents' reports are claims, not proof: after they finish, run `fornax-tester` (and
+   `fornax-reviewer` for security-relevant changes), check the diff, then record decisions
+   in `LOG.md` and status in `TASKS.md`.
+6. Prefer `model: sonnet` agents for read-only research/testing; keep `inherit` for design-
+   heavy implementation.
+
+Example (M2): `fornax-backend` ×3 in parallel — C-001 `fornax-spec` (new crate),
+C-005 `fornax-proto` (new crate), C-009 trigger filters in `fornax-core` — plus
+`fornax-parity` for U1 and U2; then the orchestrator wires C-003/C-004, and
+`fornax-tester` + `fornax-reviewer` verify.
+
 ## Phase plan (from the kickoff brief)
 
 - **Step 0** — working memory files (this, `TASKS.md`, `LOG.md`).
@@ -117,7 +194,8 @@ Not applicable yet. Once the workspace exists: `cargo build`, `cargo test`,
 - **Step 2** — research gitlab-foss, Jenkins, Gitea (+ optional Woodpecker, Drone,
   Tekton, Argo CD, Flux) into `docs/research/<tool>.md` + comparison matrix.
   Hosting side of gitlab-foss and Gitea is in scope; also GCP CSR / Secure Source
-  Manager integration surface.
+  Manager integration surface. ✅ done.
+- **Step 3** ✅ approved — parity units U1–U4 (+U6–U9, U1b; U5 deferred).
 - **Step 3** — evaluate `erkamyaman/rust-anything`; propose 3–6 bounded parity units
   (propose only). ⏸ wait.
 - **Step 4** — `docs/architecture.md` + phased roadmap in `TASKS.md`. ⏸ wait.

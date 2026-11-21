@@ -1,0 +1,1 @@
+.fornax/b.yaml:3:7: duplicate pipeline name `ci` (also used by .fornax/a.yaml)

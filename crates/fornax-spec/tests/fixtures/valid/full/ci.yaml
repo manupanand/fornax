@@ -1,0 +1,37 @@
+# .fornax/pipelines/ci.yaml
+kind: Pipeline
+version: 1
+on:
+  push: { branches: [main, "release/**"], paths: ["src/**"] }
+  pull_request: {}
+  schedule: ["0 3 * * 1-5"]
+variables: { RUST_LOG: info }
+jobs:
+  build:
+    runs-on: [linux, host]
+    strategy:
+      matrix:
+        os: [linux, macos]
+        rust: [1.88, "1.90"]
+      max-parallel: 2
+    steps:
+      - name: Build
+        run: cargo build --release
+        env: { CARGO_TERM_COLOR: always }
+        timeout-minutes: 30
+        working-directory: app
+    artifacts: { paths: [target/release/app], expire-in: 7d }
+  test:
+    needs: [build]
+    steps: [{ run: cargo test }]
+  lint:
+    timeout-minutes: 10
+    steps:
+      - run: cargo clippy
+  deploy-staging:
+    needs: [test, lint]
+    if: ${{ ref == 'refs/heads/main' }}
+    environment: staging
+    trigger-deployment: staging-app
+    steps:
+      - run: echo deploying

@@ -1,0 +1,19 @@
+[package]
+name = "fornax-git"
+description = "Fornax repository storage: bare repos driven through the git binary"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+fornax-core.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

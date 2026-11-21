@@ -9,10 +9,11 @@ rollback) in one product. Think of GitLab plus Argo CD-style delivery, shipped a
 one binary you can run on a laptop or a single VM. It also integrates with
 external Git hosts.
 
-> **Status: pre-alpha, architecture phase.** No product code exists yet.
-> Everything below describes the *intended* design. Details are proposals until
-> they are accepted in [`LOG.md`](LOG.md) and documented in
-> [`docs/architecture.md`](docs/architecture.md).
+> **Status: pre-alpha.** Milestone M1 (Git hosting core) is complete: users, organisations,
+> teams and collaborators; `git clone`/`push` over HTTP (protocol v2) and SSH; OIDC login;
+> a Svelte web UI; backup/restore; Docker images. CI and GitOps are designed but not built
+> yet. See [`docs/architecture.md`](docs/architecture.md)
+> and [`TASKS.md`](TASKS.md).
 
 ---
 
@@ -41,12 +42,16 @@ external Git hosts.
 
 ## Planned capabilities
 
-### Git hosting
-- Built-in repository hosting (push/pull over HTTPS and SSH); the MVP feature
-  set (merge requests, code review, issues) is still being decided
+### Git hosting (available now)
+- Repositories for users and organisations; push/pull over HTTP(S) (protocol v2) and SSH
+- Organisations with owners/members, teams with read/write/admin grants, collaborators
+- Browse branches, commits, folders and files in the web UI or the REST API
+- Pull requests, code review and issues come in milestone M4
 
 ### Continuous integration
-- YAML pipeline spec with stages and an explicit job DAG (`needs:`)
+- Pipelines defined in **YAML only** (no scripting DSL), in a `.fornax/` directory at the
+  root of any repository, similar to `.github/workflows/`
+- Stages and an explicit job DAG (`needs:`)
 - Triggers: push, merge/pull request, tag, schedule (cron), manual, API
 - Matrix builds, rules and conditions, variable interpolation
 - Artifacts and caches backed by local disk or S3-compatible storage
@@ -66,7 +71,8 @@ external Git hosts.
   behind a provider-agnostic layer (GitHub, GitLab, Gitea and others to follow)
 - Login via OIDC first, then LDAP, SAML and SCIM
 - RBAC, audit log, scoped secrets
-- Web UI and a `fornax` CLI
+- Web UI built with Svelte (repositories, diffs, pipelines, deployments), embedded in
+  the binary, plus a `fornax` CLI
 
 ## Editions (open core)
 
@@ -112,7 +118,7 @@ Planned Rust workspace (subject to change):
 The schema is not final. This shows the intended look and feel:
 
 ```yaml
-# .fornax.yml
+# .fornax/pipelines/ci.yaml   (file layout not final)
 stages: [build, test, deploy]
 
 jobs:
@@ -162,12 +168,29 @@ The detailed backlog with acceptance criteria lives in [`TASKS.md`](TASKS.md).
 
 ## Building from source
 
-Not available yet. Once code lands, the plan is:
+Requires Rust ≥ 1.88 and `git` ≥ 2.38.
 
 ```bash
 cargo build --release
-./target/release/fornax --help
+./target/release/fornax admin create-user alice --admin    # prints an access token
+./target/release/fornax serve --listen 127.0.0.1:3000
 ```
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+     -d '{"name":"hello"}' http://127.0.0.1:3000/api/v1/user/repos
+git push http://alice:$TOKEN@127.0.0.1:3000/alice/hello.git main
+```
+
+Or with Docker (see [`CONTRIBUTING.md`](CONTRIBUTING.md)):
+
+```bash
+docker compose up -d --build
+docker compose run --rm fornax admin create-user alice --admin
+```
+
+Open http://localhost:3000 for the web UI. The UI is built from `web/` (Svelte); without
+it the server still runs and shows a placeholder page.
 
 ## Contributing
 

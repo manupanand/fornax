@@ -1,0 +1,38 @@
+[package]
+name = "fornax-api"
+description = "Fornax HTTP layer: REST API, authentication, Git smart HTTP"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+fornax-ci.workspace = true
+fornax-core.workspace = true
+fornax-db.workspace = true
+fornax-git.workspace = true
+async-compression.workspace = true
+axum.workspace = true
+base64.workspace = true
+futures-util.workspace = true
+getrandom.workspace = true
+hex.workspace = true
+jsonwebtoken.workspace = true
+reqwest.workspace = true
+rust-embed.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+tracing.workspace = true
+url.workspace = true
+
+[dev-dependencies]
+flate2.workspace = true
+reqwest.workspace = true
+tempfile.workspace = true
+tower.workspace = true
+
+[lints]
+workspace = true

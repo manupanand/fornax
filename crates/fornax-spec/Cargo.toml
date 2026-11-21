@@ -1,0 +1,16 @@
+[package]
+name = "fornax-spec"
+description = "Fornax .fornax/ pipeline and deployment spec: parsing, validation, expressions, trigger filters and cron (no I/O)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+chrono.workspace = true
+saphyr-parser.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true

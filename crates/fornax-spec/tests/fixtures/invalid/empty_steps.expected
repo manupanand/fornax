@@ -1,0 +1,2 @@
+.fornax/empty_steps.yaml:6:12: job `build` must have at least one step
+.fornax/empty_steps.yaml:7:3: job `test` must define `steps`

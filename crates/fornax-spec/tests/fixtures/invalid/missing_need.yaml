@@ -1,0 +1,9 @@
+kind: Pipeline
+version: 1
+on: push
+jobs:
+  build:
+    steps: [{ run: make }]
+  test:
+    needs: [build, bild]
+    steps: [{ run: make test }]

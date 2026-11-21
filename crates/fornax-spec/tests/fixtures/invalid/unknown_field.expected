@@ -1,0 +1,2 @@
+.fornax/unknown_field.yaml:6:5: unknown field `runs_on` in job `build`; expected one of: runs-on, needs, if, env, timeout-minutes, steps, strategy, artifacts, environment, trigger-deployment
+.fornax/unknown_field.yaml:9:9: unknown field `shell` in step 1; expected one of: name, run, env, timeout-minutes, working-directory

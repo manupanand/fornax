@@ -1,0 +1,16 @@
+kind: Pipeline
+version: 1
+on:
+  push:
+    branches: ["[oops"]
+  pull_requests: {}
+jobs:
+  "bad/name":
+    steps: [{ run: x }]
+  ok:
+    timeout-minutes: 0
+    trigger-deployment: nowhere
+    strategy:
+      matrix:
+        os: []
+    steps: [{ run: x }]
