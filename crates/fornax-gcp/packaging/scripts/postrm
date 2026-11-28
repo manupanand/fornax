@@ -1,0 +1,32 @@
+#!/bin/sh
+# Copyright 2026 Manu P Anand
+# Licensed under the Apache License, Version 2.0
+# See LICENSE for details.
+#
+# fornax-gcp post-remove script, shared by the .deb (postrm: "remove" | "purge" | ...) and
+# the .rpm (%postun: 0 = erase, 1 = upgrade).
+#
+# Never deletes configuration or data, not even on purge: /etc/fornax-gcp and the
+# systemd drop-in are written by `server init` (not by the package), and the data folders
+# hold keys, gcloud login, state and releases. It only reloads systemd and says what is left.
+
+case "$1" in
+  remove | purge | 0) ;;
+  *) exit 0 ;;
+esac
+
+if [ -d /run/systemd/system ] && command -v systemctl >/dev/null 2>&1; then
+  systemctl daemon-reload >/dev/null 2>&1 || true
+fi
+
+left=""
+for p in /etc/fornax-gcp /etc/systemd/system/fornax-gcp-agent.service.d \
+  /etc/systemd/system/fornax-gcp-agent.service; do
+  [ -e "$p" ] && left="$left $p"
+done
+if [ -n "$left" ]; then
+  echo "fornax-gcp: removed. Left in place (delete by hand if no longer needed):"
+  for p in $left; do echo "  $p"; done
+  echo "  plus the deploy folders named in config.toml (deploy.base_dir, deploy.apps_dir)."
+fi
+exit 0

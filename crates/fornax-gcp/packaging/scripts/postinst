@@ -1,0 +1,63 @@
+#!/bin/sh
+# Copyright 2026 Manu P Anand
+# Licensed under the Apache License, Version 2.0
+# See LICENSE for details.
+#
+# fornax-gcp post-install script, shared by the .deb (postinst: "configure" [old-version])
+# and the .rpm (%post: 1 = install, 2 = upgrade).
+#
+# Rules (docs/fornax-gcp-install.md): no network, installs nothing, never enables or starts
+# the agent, never fails the package install. It only reloads systemd, restarts the agent
+# on upgrade if it is already running, and prints what is missing plus the next steps.
+
+upgrade=""
+case "$1" in
+  configure) [ -n "$2" ] && upgrade=1 ;;
+  1) ;;
+  2) upgrade=1 ;;
+  *) exit 0 ;;
+esac
+
+unit=fornax-gcp-agent.service
+
+if [ -d /run/systemd/system ] && command -v systemctl >/dev/null 2>&1; then
+  systemctl daemon-reload >/dev/null 2>&1 || true
+  # Upgrade only: pick up the new binary if the agent was already running (never starts it).
+  if [ -n "$upgrade" ]; then
+    systemctl try-restart "$unit" >/dev/null 2>&1 || true
+  fi
+fi
+
+echo ""
+echo "fornax-gcp: installed /usr/bin/fornax-gcp and $unit (not enabled)."
+echo "fornax-gcp: checking prerequisites (this package does not install them):"
+# Package-manager scriptlets run with a minimal PATH; gcloud often lives in these too.
+PATH="$PATH:/usr/local/bin:/snap/bin:/usr/lib/google-cloud-sdk/bin"
+export PATH
+if command -v timeout >/dev/null 2>&1; then
+  timeout 60 /usr/bin/fornax-gcp doctor --mode server
+else
+  /usr/bin/fornax-gcp doctor --mode server
+fi
+rc=$?
+if [ "$rc" -ne 0 ]; then
+  echo "fornax-gcp: some prerequisites are missing (see above). Install them before"
+  echo "            'server init'; fornax-gcp stops with an error until they are present."
+  echo "            gcloud:  https://cloud.google.com/sdk/docs/install"
+  echo "            Docker:  https://docs.docker.com/engine/install/ (with docker-compose-plugin)"
+  echo "            git:     apt install git / dnf install git"
+fi
+echo ""
+echo "Next steps:"
+echo "  1. On an admin machine with your own gcloud login:"
+echo "       fornax-gcp gcp init          # topic, subscription, service account, repos"
+echo "       fornax-gcp gcp create-key --out /abs/path/key.json"
+echo "     Copy fornax-gcp.toml and the key to this server."
+echo "  2. On this server:"
+echo "       sudo fornax-gcp server init --config /path/to/fornax-gcp.toml"
+echo "     (folders, key check, agent gcloud login, /etc/fornax-gcp/config.toml,"
+echo "      systemd drop-in, enable + start the agent)"
+echo "  Example config: /usr/share/fornax-gcp/config.example.toml"
+echo "  Docs:           /usr/share/doc/fornax-gcp/install.md"
+echo ""
+exit 0

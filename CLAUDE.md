@@ -127,6 +127,14 @@ Data lives in `./data` (`--data-dir` / `FORNAX_DATA_DIR`): `fornax.db`, `repos/`
 `ssh_host_ed25519_key`. OIDC via `--oidc-issuer/--oidc-client-id/--oidc-client-secret`
 (or `FORNAX_OIDC_*`).
 
+## Where to build (user rule)
+
+**Do not build Rust on the laptop** (target dirs are tens of GB). Edit here, then build and
+test on the server `ansiblenode` (Ubuntu 22.04, Rust in `~/.cargo`): `scripts/remote-build.sh
+[--dir NAME] -- cargo test -p <crate>` syncs this tree to `~/DevOps/code-pe/fornax-dev` there.
+The user's git clone on ansiblenode is `/home/blpdevops/DevOps/code-pe/fornax`; it is updated by
+pull after the user approves commit + push. Ask before committing or pushing.
+
 ## Coding conventions (to apply once code starts)
 
 - `cargo fmt` + `clippy -D warnings` clean; no `unsafe` without a justified comment.

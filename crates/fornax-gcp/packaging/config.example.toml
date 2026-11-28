@@ -1,0 +1,56 @@
+# Copyright 2026 Manu P Anand
+# Licensed under the Apache License, Version 2.0
+# See LICENSE for details.
+#
+# Example fornax-gcp configuration (BLP values) = output of `fornax-gcp config example`.
+# Installed as /usr/share/fornax-gcp/config.example.toml. It is NOT used by anything:
+# `fornax-gcp gcp init` writes ./fornax-gcp.toml on the admin machine, and
+# `sudo fornax-gcp server init` installs /etc/fornax-gcp/config.toml on the server.
+# No secrets belong in this file (the key is referenced by absolute path only).
+# Field reference: /usr/share/doc/fornax-gcp/design.md ("Configuration file").
+
+repos = [
+    "srf-blp-kafka-init",
+    "srf-blp-db-migrate",
+    "srf-blp-pg-consumer",
+    "srf-blp-aggregator",
+    "srf-blp-api",
+    "srf-blp-deepstream-app",
+    "srf-blp-ui",
+]
+
+[gcp]
+project = "visual-analytics-1"
+project_number = "121549680248"
+topic = "srf-source-repo-events"
+subscription = "srf-onprem-pull-subscription"
+service_account = "srf-blp-deploy-agent"
+artifact_location = "asia-south1"
+artifact_repository = "srf-vision-ai"
+repo_base_url = "https://source.developers.google.com/p/visual-analytics-1/r"
+
+[shared]
+repo = "srf-blp-infra-configuration"
+apps = [
+    "platform",
+    "testcameras",
+]
+apps_dir = "apps"
+project_prefix = "srf-blp-"
+
+[deploy]
+deployment_dir = ".deployment"
+user = "blpdevops"
+base_dir = "/data/blp/deploy"
+apps_dir = "/data/blp/apps"
+secrets_dir = "/data/blp/deploy/secrets"
+shared_env_file = "/data/blp/deploy/secrets/ppe.env"
+service_account_key = "/data/blp/deploy/secrets/srf-blp-deploy-agent-key.json"
+gcloud_config_dir = "/data/blp/deploy/gcloud"
+
+[agent]
+reconcile_interval_secs = 300
+pull_timeout_secs = 120
+deploy_timeout_secs = 1800
+health_timeout_secs = 120
+keep_releases = 5

@@ -669,3 +669,66 @@ Format: date · decision · alternatives · reasoning · evidence · consequence
   `[profile.dev] debug = "line-tables-only"` to shrink debug builds.
 - **Evidence:** 246 workspace tests incl. binary e2e; clippy/fmt/headers clean.
 - **Status:** accepted
+
+## D-044 · 2026-11-23 · M3a first: pull-based Docker Compose deploy to client DMZ servers
+- **Problem (user):** applications run on clients' on-prem **DMZ servers with limited
+  internet**. Every release today means manually copying code and container images to the
+  DMZ server, then to the production server, then `docker compose up`. The TL wants this
+  automated as **auto-deploy**, and it must be **pull-based** like Argo CD.
+- **Decision:** a `fornax deploy-agent` on the client server polls Fornax over **outbound
+  HTTPS only**, fetches the desired revision for its environment (compose bundle + image
+  bundle, sha256-verified), `docker load`s the images (no registry access needed), runs
+  `docker compose -p <project> up -d`, waits for health, keeps the last 3 releases for
+  rollback, and reports status/drift back. Config: existing `kind: Deployment` in
+  `.fornax/deployments/` (no new syntax) + `/etc/fornax/deploy-agent.yaml` on the server.
+  Design: `docs/deploy-agent.md`; examples: `examples/compose-deploy/` (validated by
+  `crates/fornax-spec/tests/examples.rs`).
+- **Defaults:** `sync.auto: true` (TL), `prune: false`, `self-heal: false` (report drift only).
+- **Deferred (TL: auth later):** SPIFFE/SPIRE or service-account workload identity with
+  per-environment authorisation (v1: per-agent token file); relay mode for a production server
+  behind the DMZ server; approvals/promotion PRs; secrets delivery (secrets stay on the client
+  server); prune/self-heal; Kubernetes target; image signing.
+- **Supersedes:** the generic M3 order in TASKS.md (G-001…G-006) — M3a tasks come first.
+- **Assumptions to confirm:** one reachable Fornax URL per client server; Docker + Compose v2
+  installed and the agent may use the Docker socket; `main` is the release branch; one
+  environment per client server.
+- **Status:** accepted (design); implementation not started
+
+## D-045 · 2026-11-28 · `fornax-gcp`: interactive CLI + Rust agent for GCP-connected on-prem servers
+- **Problem (real use case):** the BLP/PPE production path (Cloud Source Repositories →
+  Pub/Sub → pull subscription → `agent.py` + `deploy.sh` on the on-prem server) works, but
+  setting it up and extending it is a long list of manual gcloud/server steps (topic,
+  subscription, service account, IAM per repo, topic per repo, key, folders and permissions,
+  agent gcloud login, `agent.env`, systemd unit, copying scripts).
+- **Decisions (user, 2026-11-28):** separate binary + package `fornax-gcp`; scope = setup **and**
+  a Rust agent replacing agent.py/deploy.sh with the same behaviour; two modes (`gcp …` on an
+  admin machine with the engineer's own login, `sudo fornax-gcp server …` on the server);
+  service-account key at an **absolute path the engineer enters**; deployment folder in repos
+  asked at setup (suggest `.fornax`, BLP keeps `.deployment`); `.deb`/`.rpm` do **not** install
+  gcloud/git/Docker — the CLI errors with clear hints when they are missing; tests use fake
+  gcloud/docker only (no real GCP changes); build and test on `ansiblenode` (Rust on the host),
+  never on the laptop.
+- **Design:** `docs/fornax-gcp.md` (commands, TOML config, setup steps, agent semantics).
+- **Execution:** orchestrator wrote the shared skeleton (config schema + validation, `Runner`
+  with dry-run, `doctor`, CLI); three workers in parallel: setup commands, agent port (with the
+  47 shell checks ported), packaging (`.deb`/`.rpm`, systemd unit, container install tests).
+- **Status:** accepted; implemented on branch `feat/fornax-gcp` (see D-046)
+
+## D-046 · 2026-11-28 · `fornax-gcp` packaging and the systemd drop-in contract
+- **Binary:** static musl build (`x86_64-unknown-linux-musl`, static-pie), so one `.deb` / `.rpm`
+  installs on Ubuntu 20.04–24.04, Debian 11/12 and Rocky 8/9 without extra libraries.
+- **Dependencies:** gcloud, git, Docker and Compose are only *Suggests* / weak deps. The package
+  never fetches them; `postinst` runs `doctor` and prints what is missing, and every command
+  that needs a tool stops with a clear error (user decision, D-045).
+- **Unit:** the package ships `/usr/lib/systemd/system/fornax-gcp-agent.service`, disabled, with
+  `ConditionPathExists=/etc/fornax-gcp/config.toml` and no `User=`. `server init` then writes only
+  the host settings (`User=`, `CLOUDSDK_CONFIG=`) to
+  `/etc/systemd/system/fornax-gcp-agent.service.d/override.conf`. Without the package (binary
+  copied by hand) it writes a full unit to `/etc/systemd/system/` instead.
+- **Removal:** `remove` stops and disables the agent; `purge` keeps `/etc/fornax-gcp` and the
+  key (the engineer deletes secrets deliberately).
+- **Verified:** build, 52 unit + 49 integration tests, fmt, clippy `-D warnings`, headers on
+  ansiblenode; offline container installs on the distros above; `doctor` exits 1 naming the
+  missing tools; `config validate` and `gcp init --dry-run --yes` work on a bare box.
+- **Open:** packages unsigned; maintainer email is a placeholder; no real gcloud run yet
+  (X-006); package upgrade + drop-in not yet tried under a real systemd.

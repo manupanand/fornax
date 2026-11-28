@@ -1,0 +1,87 @@
+[package]
+name = "fornax-gcp"
+description = "Interactive setup and pull-based deploy agent for GCP-connected on-prem servers"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[[bin]]
+name = "fornax-gcp"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+dialoguer = { version = "0.11", default-features = false }
+nix = { workspace = true, features = ["fs", "user", "signal", "process"] }
+serde.workspace = true
+serde_json.workspace = true
+signal-hook = "0.3"
+thiserror.workspace = true
+toml = "0.8"
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true
+
+# Packaging (docs/fornax-gcp-install.md; built by scripts/package-fornax-gcp.sh on the build
+# server). The package installs only the static binary, a disabled systemd unit, an example
+# config and docs. gcloud, git and Docker are NOT dependencies (D-045): the maintainer
+# scripts only print what is missing. They are Suggests (not Recommends) so apt/dnf never
+# pull them in by default.
+[package.metadata.deb]
+maintainer = "Manu P Anand <manupanand@users.noreply.github.com>"
+copyright = "2026, Manu P Anand"
+license-file = ["../../LICENSE", "0"]
+revision = ""
+section = "admin"
+priority = "optional"
+# $auto = dpkg-shlibdeps: empty for the static musl binary; libc6 (>= x) for a glibc build.
+depends = "$auto"
+suggests = "git, docker-ce | docker.io, docker-compose-plugin | docker-compose-v2, google-cloud-cli"
+extended-description = """\
+Interactive setup for GCP-connected on-prem servers (Pub/Sub topic and pull subscription, \
+service account, IAM, Cloud Source Repositories) and the pull-based deploy agent \
+(Pub/Sub wake-up -> git tag -> docker compose). \
+This package does not install gcloud, git, Docker or the Docker Compose plugin; \
+'fornax-gcp doctor' reports what is missing. The agent service is installed disabled; \
+'sudo fornax-gcp server init' configures and enables it."""
+maintainer-scripts = "packaging/scripts/"
+assets = [
+    ["target/release/fornax-gcp", "usr/bin/", "755"],
+    ["packaging/fornax-gcp-agent.service", "usr/lib/systemd/system/", "644"],
+    ["packaging/config.example.toml", "usr/share/fornax-gcp/", "644"],
+    ["../../docs/fornax-gcp-install.md", "usr/share/doc/fornax-gcp/install.md", "644"],
+    ["../../docs/fornax-gcp.md", "usr/share/doc/fornax-gcp/design.md", "644"],
+]
+
+[package.metadata.generate-rpm]
+# RPM has one summary/description field (cargo-generate-rpm uses it for both).
+summary = "Setup CLI and pull-based deploy agent for GCP-connected on-prem servers (gcloud, git and Docker are required but not installed by this package; run 'fornax-gcp doctor')"
+release = "1"
+# Static musl binary: no automatic shared-library requirements.
+auto-req = "no"
+post_install_script = "packaging/scripts/postinst"
+pre_uninstall_script = "packaging/scripts/prerm"
+post_uninstall_script = "packaging/scripts/postrm"
+assets = [
+    { source = "target/release/fornax-gcp", dest = "/usr/bin/fornax-gcp", mode = "755" },
+    { source = "packaging/fornax-gcp-agent.service", dest = "/usr/lib/systemd/system/fornax-gcp-agent.service", mode = "644" },
+    { source = "packaging/config.example.toml", dest = "/usr/share/fornax-gcp/config.example.toml", mode = "644" },
+    { source = "docs/fornax-gcp-install.md", dest = "/usr/share/doc/fornax-gcp/install.md", mode = "644", doc = true },
+    { source = "docs/fornax-gcp.md", dest = "/usr/share/doc/fornax-gcp/design.md", mode = "644", doc = true },
+    { source = "LICENSE", dest = "/usr/share/licenses/fornax-gcp/LICENSE", mode = "644", doc = true },
+]
+
+# Weak dependency only (dnf does not install Suggests): gcloud, git and Docker are checked
+# at run time by `fornax-gcp doctor`, never installed by this package.
+[package.metadata.generate-rpm.suggests]
+git = "*"
+docker-ce = "*"
+docker-compose-plugin = "*"
+google-cloud-cli = "*"

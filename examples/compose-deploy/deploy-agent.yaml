@@ -1,0 +1,12 @@
+# Copyright 2026 Manu P Anand
+# Licensed under the Apache License, Version 2.0
+# See LICENSE for details.
+#
+# Install on the client server as /etc/fornax/deploy-agent.yaml (docs/deploy-agent.md).
+server: https://fornax.example.com      # the only endpoint the server must reach (outbound HTTPS)
+environment: client-a-prod              # which deployment(s) this agent applies
+token_file: /etc/fornax/agent.token     # temporary per-agent token; SPIFFE/SA identity later
+work_dir: /var/lib/fornax-deploy        # releases/<commit>/ + state.json (last applied)
+poll_interval: 60s
+images: bundle                          # bundle = images from Fornax (docker load); registry = docker pull
+# proxy: http://proxy.client.local:3128 # optional outbound proxy

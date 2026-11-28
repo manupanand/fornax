@@ -71,6 +71,29 @@ Update this file on every change. Milestones follow D-028: hosting → CI → CD
 | C-012 | Runner server (gRPC on HTTP port), job tokens, `fornax agent`/`create-runner` CLI | done | C-004, C-005 | `crates/fornax-runner` tests + binary e2e (push → agent → success) |
 | C-013 | Runner scoping to owner/repo + steps under a separate OS user (review S1 residual) | todo | C-012 | A runner only receives jobs of its scope; steps cannot read agent or other jobs' secrets |
 
+## fornax-gcp — GCP-connected on-prem setup CLI + agent (current; D-045, D-046)
+
+| ID | Title | Status | Depends on | Acceptance criteria |
+|---|---|---|---|---|
+| X-001 | Skeleton: config schema + validation, Runner with dry-run, doctor, CLI | done | — | Builds and tests on ansiblenode; `doctor` reports missing tools |
+| X-002 | `gcp init` / `add-repo` / `create-key` (interactive, idempotent, IAM merge) | done | X-001 | Fake-runner tests of the exact gcloud sequence; re-run creates nothing |
+| X-003 | `server init` (folders, key checks, agent gcloud login, config, systemd) | done | X-001 | Temp-root tests; dry-run changes nothing |
+| X-004 | Rust agent: `agent run`, `deploy`, `status` (port of agent.py + deploy.sh) | done | X-001 | All 47 original shell checks ported and passing |
+| X-005 | `.deb` / `.rpm` packages, systemd unit, install docs | done | X-001 | Installs on Ubuntu 22.04/24.04, Debian 12, Rocky 9 containers without gcloud/docker; doctor names what is missing |
+| X-006 | Real-server trial (side by side with agent.py on a test server) | todo | X-002…X-005 | Engineer runs setup on a test project/server; parity confirmed |
+
+## M3a — Pull-based Docker Compose deploy to client DMZ servers (next; D-044)
+
+| ID | Title | Status | Depends on | Acceptance criteria |
+|---|---|---|---|---|
+| G-101 | Deployment records: push to main creates a deployment revision per `kind: Deployment` (compose bundle = `source.path` tarball + sha256) | todo | C-003 | Push → revision stored for `client-a-prod`; bundle downloadable and verified |
+| G-102 | Image bundles: CI builds images and stores `docker save` output as an artifact linked to the revision | todo | C-008 | Bundle per revision with image list + sha256; size limits |
+| G-103 | Desired-state API for agents: `GET /api/v1/deploy/{env}/desired`, bundle downloads, `POST …/status`; per-agent token (temporary) | todo | G-101 | Agent sees only its environment; unauthenticated → 401 |
+| G-104 | `fornax deploy-agent`: poll, compare with state.json, download + verify, `docker load`, `compose up -d`, health wait, keep 3 releases, report | todo | G-103 | Integration test with real Docker: new commit → new containers healthy; failure reported; rollback works |
+| G-105 | Drift + status in the UI: environment → revision → status, last report, drift | todo | G-103 | Page shows in sync / drifted / failed per environment |
+| G-106 | Relay mode: agent on the DMZ server serves a second agent on the production server | todo | G-104 | Production server with no route out still deploys |
+| G-107 | Workload identity: SPIFFE/SPIRE mTLS or Kubernetes service-account tokens, per-environment authorisation | todo | G-103 | Replaces the temporary token; also used for CI runners (C-013) |
+
 ## M3 — CD / GitOps
 
 | ID | Title | Status | Depends on | Acceptance criteria |

@@ -1,0 +1,18 @@
+# Copyright 2026 Manu P Anand
+# Licensed under the Apache License, Version 2.0
+# See LICENSE for details.
+#
+# Compose project deployed by fornax deploy-agent on the client server.
+# Pin images by tag (or digest); CI builds them and Fornax ships them as an image bundle,
+# so the client server never needs registry access.
+name: client-a
+services:
+  app:
+    image: registry.example.com/acme/app:1.4.2
+    restart: unless-stopped
+    env_file: [.env]                 # non-secret settings from Git
+    ports: ["8080:8080"]
+    healthcheck:                     # the agent waits for "healthy" before reporting success
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/health"]
+      interval: 10s
+      retries: 6

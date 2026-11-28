@@ -1,0 +1,23 @@
+#!/bin/sh
+# Copyright 2026 Manu P Anand
+# Licensed under the Apache License, Version 2.0
+# See LICENSE for details.
+#
+# fornax-gcp pre-remove script, shared by the .deb (prerm: "remove" | "upgrade" | ...) and
+# the .rpm (%preun: 0 = erase, 1 = upgrade). On real removal only: stop and disable the
+# agent. Upgrades leave it running (postinst restarts it with the new binary).
+
+case "$1" in
+  remove | 0) ;;
+  *) exit 0 ;;
+esac
+
+unit=fornax-gcp-agent.service
+if command -v systemctl >/dev/null 2>&1; then
+  if [ -d /run/systemd/system ]; then
+    systemctl stop "$unit" >/dev/null 2>&1 || true
+  fi
+  # Works without a running systemd too (removes the WantedBy symlink).
+  systemctl disable "$unit" >/dev/null 2>&1 || true
+fi
+exit 0

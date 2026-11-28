@@ -1,0 +1,17 @@
+# Copyright 2026 Manu P Anand
+# Licensed under the Apache License, Version 2.0
+# See LICENSE for details.
+#
+# Pull-based deploy to a client DMZ server (docs/deploy-agent.md, D-044).
+kind: Deployment
+version: 1
+environment: client-a-prod        # the agent on the client server asks for this name
+source:
+  path: deploy/client-a           # folder with docker-compose.yml (+ non-secret .env)
+target:
+  type: docker-compose
+  project: client-a               # compose project name on the server
+sync:
+  auto: true                      # TL: deploy every new commit to main automatically
+  prune: false                    # never delete services/volumes automatically (v1)
+  self-heal: false                # report manual changes on the server, do not overwrite them
